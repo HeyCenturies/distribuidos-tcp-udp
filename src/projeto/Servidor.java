@@ -11,6 +11,7 @@ import java.util.concurrent.*;
 
 public class Servidor {
 
+    public static final Integer serverPort = 10078;
     public static void main(String[] args) {
 
         // TCP
@@ -18,9 +19,9 @@ public class Servidor {
             @Override
             public void run() {
                 ExecutorService executor = null;
-                try (ServerSocket server = new ServerSocket(10098)) {
+                try (ServerSocket server = new ServerSocket(serverPort)) {
                     executor = Executors.newFixedThreadPool(5);
-                    System.out.println("Listening on TCP port 10098");
+                    System.out.println("Listening on TCP port " + serverPort);
                     while (true) {
                         final Socket socket = server.accept();
                         InputStreamReader isr = new InputStreamReader(socket.getInputStream());
@@ -49,8 +50,8 @@ public class Servidor {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                try (DatagramSocket socket = new DatagramSocket(10098)) {
-                    System.out.println("Listening on UDP port 10098");
+                try (DatagramSocket socket = new DatagramSocket(serverPort)) {
+                    System.out.println("Listening on UDP port " + serverPort);
 
                     while (true) {
                         byte[] buf = new byte[socket.getReceiveBufferSize()];
@@ -88,8 +89,7 @@ public class Servidor {
 
                         if(operation.equals("LEAVE")){
 
-                            String host = socketData.substring(nthIndexOf(socketData,",",1)+1,
-                                    socketData.length()-1).trim();
+                            String host = socketData.substring(nthIndexOf(socketData,",",1)+1).trim();
 
 
                             System.out.println("[LEAVE REQUEST] host:" + host);
@@ -131,11 +131,12 @@ public class Servidor {
                         informacoes.add("ALIVE");
 
                         sendData = informacoes.toString().getBytes(StandardCharsets.UTF_8);
+                        System.out.println("MANDANDO PRA PORTA: " + Integer.valueOf(hostAtual.substring(nthIndexOf(hostAtual,":",1)+1,hostAtual.length())));
 
                         DatagramPacket sendPacket = new DatagramPacket(sendData,
                                 sendData.length,
                                 InetAddress.getByName("127.0.0.1"),
-                                3000);
+                                Integer.valueOf(hostAtual.substring(nthIndexOf(hostAtual,":",1)+1,hostAtual.length())));
 
                         //Integer.parseInt(hostAtual.substring(nthIndexOf(hostAtual,":",1)+1,hostAtual.length()-1)));
 

@@ -3,6 +3,8 @@
 /out
 # Log file
 *.log
+distribuidos-tcp-udp.iml
+/distribuidos-tcp-udp.iml
 
 # BlueJ files
 *.ctxt

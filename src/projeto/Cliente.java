@@ -12,6 +12,7 @@ import java.util.concurrent.Executors;
 
 public class Cliente {
 
+    public static final Integer serverPort = 10078;
     public static String dir = null;
     public static List<String> StoredfileNames = null;
     public static String ipNumber = null;
@@ -126,7 +127,7 @@ public class Cliente {
             DatagramPacket sendPacket = new DatagramPacket(sendData,
                     sendData.length,
                     InetAddress.getByName("127.0.0.1"),
-                    10098);
+                    serverPort);
 
             clientSocket.send(sendPacket);
 
@@ -167,7 +168,7 @@ public class Cliente {
             DatagramPacket sendPacket = new DatagramPacket(sendData,
                     sendData.length,
                     InetAddress.getByName("127.0.0.1"),
-                    10098);
+                    serverPort);
 
 
             clientSocket.send(sendPacket);
