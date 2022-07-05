@@ -1,5 +1,7 @@
 package tcpdemo;
 
+import projeto.Mensagem;
+
 import java.net.ServerSocket;
 import java.net.Socket;
 

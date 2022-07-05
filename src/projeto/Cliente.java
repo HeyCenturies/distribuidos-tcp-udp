@@ -1,7 +1,5 @@
 package projeto;
 
-import tcpdemo.Mensagem;
-
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -11,8 +9,6 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static java.lang.Thread.interrupted;
 
 public class Cliente {
 
