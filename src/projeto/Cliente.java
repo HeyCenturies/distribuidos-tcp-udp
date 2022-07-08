@@ -37,6 +37,12 @@ public class Cliente {
                 leaveServidor(ipNumber,portNumber);
                 System.exit(1);
             }
+            if(resposta.equals("SEARCH")){
+                System.out.println("Insira o nome do arquivo");
+                String fileName = inFromUser.readLine();
+                procuraFileNoServidor(fileName);
+
+            }
         }
     }
 
@@ -88,7 +94,7 @@ public class Cliente {
                                 socket.receive(packet);
                                 String socketData = new String(packet.getData(), 0, packet.getLength());
                                 socketData = socketData.substring(1,socketData.length()-1);
-                                String operation = socketData.substring(0,socketData.length()-1);
+                                String operation = socketData;
 
                                 System.out.println("CLIENT RECEBEU REQUEST: " + operation);
 
@@ -189,6 +195,40 @@ public class Cliente {
         }
     }
 
+    private static void procuraFileNoServidor(String fileName) {
+        try {
+
+            List<String> informacoes = new ArrayList<>();
+            DatagramSocket clientSocket = new DatagramSocket(acharFreePort());
+
+            byte[] sendData;
+
+            informacoes.add("SEARCH");
+            informacoes.add(fileName);
+
+            sendData = informacoes.toString().getBytes(StandardCharsets.UTF_8);
+
+            DatagramPacket sendPacket = new DatagramPacket(sendData,
+                    sendData.length,
+                    InetAddress.getByName("127.0.0.1"),
+                    serverPort);
+
+            clientSocket.send(sendPacket);
+
+            //recebe response
+            byte[] recBuffer = new byte[1024];
+            DatagramPacket recPkt = new DatagramPacket(recBuffer, recBuffer.length);
+            clientSocket.receive(recPkt);
+
+            String info = new String(recPkt.getData(),recPkt.getOffset(),recPkt.getLength());
+
+            System.out.println("LISTA DE HOSTS COM ARQUIVO: " + fileName + " : " + info);
+
+            clientSocket.close();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private static List<String> getFileNames(String folderPath) {
         Path dir = Paths.get(folderPath);

@@ -8,9 +8,9 @@ public class Mensagem {
     private static Mensagem single_instance = null;
 
     //port number and list of file names available
-    private Map<String,List<String>> portToFiles;
+    public  Map<String,List<String>> portToFiles;
     //file name and list of hosts
-    private Map<String,List<String>> filesToPort;
+    public Map<String,List<String>> filesToPort;
 
     private Mensagem()
     {

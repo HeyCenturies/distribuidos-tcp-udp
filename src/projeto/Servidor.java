@@ -84,6 +84,7 @@ public class Servidor {
                                 msg.setFilesToPort(fileInList,hostsWithFiles);
                             }
 
+
                             socket.send(packet);
                         }
 
@@ -97,6 +98,18 @@ public class Servidor {
 
                             Mensagem msg = Mensagem.getInstance();
                             msg.removeHost(host);
+
+                            socket.send(packet);
+                        }
+
+                        if(operation.equals("SEARCH")){
+
+                            String fileName = socketData.substring(nthIndexOf(socketData,",",1)+1).trim();
+
+                            Mensagem msg = Mensagem.getInstance();
+                            List<String> hostsComArquivo = msg.getFilesToPort(fileName);
+
+                            packet.setData(hostsComArquivo.toString().getBytes(StandardCharsets.UTF_8));
 
                             socket.send(packet);
                         }
@@ -131,7 +144,6 @@ public class Servidor {
                         informacoes.add("ALIVE");
 
                         sendData = informacoes.toString().getBytes(StandardCharsets.UTF_8);
-                        System.out.println("MANDANDO PRA PORTA: " + Integer.valueOf(hostAtual.substring(nthIndexOf(hostAtual,":",1)+1,hostAtual.length())));
 
                         DatagramPacket sendPacket = new DatagramPacket(sendData,
                                 sendData.length,
