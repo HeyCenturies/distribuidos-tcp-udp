@@ -355,22 +355,14 @@ public class Cliente {
             BufferedOutputStream bos = new BufferedOutputStream(output);
 
             byte[] buffer = new byte[bufferSize];
+
             is.read(buffer,0,bufferSize);
             output.write(buffer,0,bufferSize);
             output.flush();
-            /*
-            FileOutputStream fos = new FileOutputStream(dir + "/" + fileParaBaixar);
-            BufferedOutputStream bos = new BufferedOutputStream(fos);
 
-            byte[] contents = new byte[10000];
-
-            int bytesRead = 0;
-            while((bytesRead=is.read(contents,0,contents.length))!=-1)
-                bos.write(contents, 0, bytesRead);
-            bos.flush(); */
+            //TimeUnit.SECONDS.sleep(5);
             System.out.println("[DOWNLOAD] completo");
 
-            s.close();
     } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
@@ -399,12 +391,12 @@ static class ThreadDownload extends Thread{
             byte[] mybytearray = new byte[(int) myFile.length()];
             FileInputStream fis = new FileInputStream(myFile);
             BufferedInputStream bis = new BufferedInputStream(fis);
-            DataInputStream dis = new DataInputStream(bis);
 
             fis.read(mybytearray,0,mybytearray.length);
             writer.writeUTF(String.valueOf(mybytearray.length));
             writer.write(mybytearray, 0, mybytearray.length);
 
+            no.shutdownOutput();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
