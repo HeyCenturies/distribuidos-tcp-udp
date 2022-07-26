@@ -12,6 +12,8 @@ import java.util.concurrent.*;
 public class Servidor {
 
     public static final Integer serverPort = 10078;
+    public static final Integer ALIVE_OK_TIMEOUT_MILISECONDS = 5000;
+
     public static void main(String[] args) {
 
         // TCP
@@ -69,7 +71,7 @@ public class Servidor {
                             String numberOfFiles = socketData.substring(nthIndexOf(socketData,",",2)+1,
                                     nthIndexOf(socketData,",",3)).trim();
                             List<String> fileNames = new ArrayList<>(Arrays.asList(socketData.substring(nthIndexOf(socketData,",",3)+3,
-                                    socketData.length()-1).split(",")));
+                                    socketData.length()-1).trim().split(",")));
 
 
                             System.out.println("[JOIN_REQUEST] host:" + host + "files:"+ numberOfFiles + "names:"+ fileNames);
@@ -81,9 +83,8 @@ public class Servidor {
                             for(String fileInList : fileNames){
                                 List<String> hostsWithFiles = msg.getFilesToPort(fileInList);
                                 hostsWithFiles.add(host);
-                                msg.setFilesToPort(fileInList,hostsWithFiles);
+                                msg.setFilesToPort(fileInList.trim(),hostsWithFiles);
                             }
-
 
                             socket.send(packet);
                         }
@@ -114,6 +115,25 @@ public class Servidor {
                             socket.send(packet);
                         }
 
+                        if(operation.equals("UPDATE")){
+
+                            String host = socketData.substring(nthIndexOf(socketData,",",1)+1, nthIndexOf(socketData,",",2)).trim();
+                            String fileName = socketData.substring(nthIndexOf(socketData,",",2)+1).trim();
+
+                            System.out.println("[UPDATE_REQUEST] host:" + host + "file:"+ fileName);
+                            packet.setData("UPDATE_OK".getBytes());
+
+                            Mensagem msg = Mensagem.getInstance();
+
+                            msg.updatePortToFiles(host,fileName);
+                            msg.updateFilesToPort(host,fileName);
+
+                            System.out.println("UPDATED PORT TO FILES: " + msg.getPortToFiles().toString());
+                            System.out.println("UPDATED FILES TO PORT: " + msg.getFilesToPort(fileName).toString());
+
+                            socket.send(packet);
+                        }
+
                     }
                 } catch (IOException ioe) {
                     System.err.println("Cannot open the port on UDP");
@@ -124,6 +144,7 @@ public class Servidor {
             }
         }).start();
 
+        // REQUEST ALIVE A CADA 30S
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         exec.scheduleAtFixedRate(new Runnable() {
             @Override
@@ -131,7 +152,7 @@ public class Servidor {
                 Mensagem msg = Mensagem.getInstance();
                 Set<String> connectedHosts = msg.getPortToFiles().keySet();
                 Iterator<String> it = connectedHosts.iterator();
-                System.out.println("LISTA DE HOSTS CONECTADOS: " + connectedHosts + " ENVIANDO ALIVE SIGNAL");
+                System.out.println("LISTA DE HOSTS CONECTADOS: " + connectedHosts);
                 while (it.hasNext()) {
                     String hostAtual = it.next();
                     // tenta ALIVE no host
@@ -150,9 +171,7 @@ public class Servidor {
                                 InetAddress.getByName("127.0.0.1"),
                                 Integer.valueOf(hostAtual.substring(nthIndexOf(hostAtual,":",1)+1,hostAtual.length())));
 
-                        //Integer.parseInt(hostAtual.substring(nthIndexOf(hostAtual,":",1)+1,hostAtual.length()-1)));
-
-                        socket.setSoTimeout(5000);
+                        socket.setSoTimeout(ALIVE_OK_TIMEOUT_MILISECONDS);
                         socket.send(sendPacket);
 
                         byte[] recBuffer = new byte[1024];
@@ -170,8 +189,6 @@ public class Servidor {
                         throw new RuntimeException(e);
                     }
                 }
-
-                System.out.println("[POS] LISTA DE HOSTS ===: " + connectedHosts + " SINAL ENVIADO");
 
             }
         }, 0, 30, TimeUnit.SECONDS);

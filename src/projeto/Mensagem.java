@@ -34,6 +34,19 @@ public class Mensagem {
         portToFiles.put(host,files);
     }
 
+    public void updatePortToFiles(String host , String file) {
+        System.out.println("[MSG] HOST: " + host + "FILE: " + file);
+
+        List<String> original = portToFiles.get(host);
+
+        System.out.println("[MSG] ORIGINAL : " + original.toString());
+
+        if(!original.contains(file)){
+            original.add(file);
+        }
+        portToFiles.put(host,original);
+    }
+
     public void removeHost (String host){
         portToFiles.remove(host);
         List<String> updatedHosts = new ArrayList<>();
@@ -59,6 +72,14 @@ public class Mensagem {
         } else{
             return lista;
         }
+    }
+
+    public void updateFilesToPort(String host , String file) {
+        List<String> hostsWithFiles = getFilesToPort(file);
+        if(!hostsWithFiles.contains(host)){
+            hostsWithFiles.add(host);
+        }
+        setFilesToPort(file.trim(),hostsWithFiles);
     }
 
     public void setFilesToPort(String fileName, List<String> hosts) {

@@ -14,18 +14,20 @@ public class Cliente {
 
     public static final Integer serverPort = 10078;
     public static String dir = null;
+    //TODO UPDATE STORED FILE NAMES SE CONSEGUIU BAIXAR O ARQUIVO DE OUTRO PEER
     public static List<String> StoredfileNames = null;
     public static String ipNumber = null;
     public static String portNumber = null;
-
     public static Boolean connected = false;
+
+    public static Integer TIMEOUT_MILISECONDS = 5000;
 
     public static void main(String[] args) throws Exception {
 
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
         while(true) {
             geraMenuInterativo(connected);
-            String resposta = inFromUser.readLine();
+            String resposta = inFromUser.readLine().toUpperCase();
             if(resposta.equals("JOIN")){
                 System.out.println("Digite IP,Porta,Path de Arquivos");
                 List<String> parametros = new ArrayList<>(Arrays.asList(inFromUser.readLine().split(",")));
@@ -41,7 +43,17 @@ public class Cliente {
                 System.out.println("Insira o nome do arquivo");
                 String fileName = inFromUser.readLine();
                 procuraFileNoServidor(fileName);
-
+            }
+            if(resposta.equals("DOWNLOAD")){
+                System.out.println("Insira o nome do host , porta e arquivo");
+                List<String> parametros = new ArrayList<>(Arrays.asList(inFromUser.readLine().split(",")));
+                enviaRequestDownload(parametros);
+            }
+            //TODO: REMOVE LATER
+            if(resposta.equals("UPDATE")){
+                System.out.println("Insira o nome do arquivo");
+                String fileName = inFromUser.readLine();
+                updateServidor(ipNumber,portNumber,fileName);
             }
         }
     }
@@ -56,14 +68,15 @@ public class Cliente {
                     System.out.println("Listening on TCP port " + porta);
                     while (true) {
                         final Socket socket = server.accept();
+
                         InputStreamReader isr = new InputStreamReader(socket.getInputStream());
                         BufferedReader reader = new BufferedReader(isr);
-                        List<String> msg = Arrays.asList(reader.readLine().toString().split("\\s+"));
 
-                        if(msg.get(0).equals("JOIN")){
-                            ThreadAtendimento ta = new ThreadAtendimento(socket);
-                            ta.start();
-                        }
+                        List<String> msg = Arrays.asList(reader.readLine().toString().split("\\s+"));
+                        System.out.println("[TESTE1]: " + msg);
+
+                        ThreadDownload ta = new ThreadDownload(socket,msg.get(0));
+                        ta.start();
 
                     }
                 } catch (IOException ioe) {
@@ -96,8 +109,6 @@ public class Cliente {
                                 socketData = socketData.substring(1,socketData.length()-1);
                                 String operation = socketData;
 
-                                System.out.println("CLIENT RECEBEU REQUEST: " + operation);
-
                                 packet.setData("ALIVE_OK".getBytes());
                                 socket.send(packet);
                             }
@@ -113,7 +124,6 @@ public class Cliente {
 
     private static void joinServidor(List<String> parametros) {
         try {
-            // 69,420,src/projeto/peer1
 
             //pega nome dos arquivos
             List<String> fileNames = getFileNames(parametros.get(2));
@@ -135,6 +145,7 @@ public class Cliente {
                     InetAddress.getByName("127.0.0.1"),
                     serverPort);
 
+            clientSocket.setSoTimeout(TIMEOUT_MILISECONDS);
             clientSocket.send(sendPacket);
 
             StoredfileNames = fileNames;
@@ -152,11 +163,51 @@ public class Cliente {
             System.out.println(info);
             System.out.println("Sou peer " + ipNumber + ":" + portNumber + " com arquivos" + fileNames.toString());
             clientSocket.close();
+        } catch (SocketTimeoutException st){
+            System.out.println("[NAO CONSEGUIU DAR JOIN] PARA HOST: " + parametros.get(0) + "TENTANDO NOVAMENTE");
+            joinServidor(parametros);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
+    private static void updateServidor(String ipNumber, String portNumber, String file) {
+        try {
+
+            List<String> informacoes = new ArrayList<>();
+            DatagramSocket clientSocket = new DatagramSocket(acharFreePort());
+
+            byte[] sendData;
+
+            informacoes.add("UPDATE");
+            informacoes.add(ipNumber+":"+portNumber);
+            informacoes.add(file);
+
+            sendData = informacoes.toString().getBytes(StandardCharsets.UTF_8);
+
+            DatagramPacket sendPacket = new DatagramPacket(sendData,
+                    sendData.length,
+                    InetAddress.getByName("127.0.0.1"),
+                    serverPort);
+
+            clientSocket.setSoTimeout(TIMEOUT_MILISECONDS);
+            clientSocket.send(sendPacket);
+
+            //recebe response
+            byte[] recBuffer = new byte[1024];
+            DatagramPacket recPkt = new DatagramPacket(recBuffer, recBuffer.length);
+
+            clientSocket.receive(recPkt);
+            String info = new String(recPkt.getData(),recPkt.getOffset(),recPkt.getLength());
+            System.out.println(info);
+            clientSocket.close();
+        } catch (SocketTimeoutException st) {
+            System.out.println("[NAO CONSEGUIU DAR UPDATE] PARA HOST: " + ipNumber + " TENTANDO NOVAMENTE");
+            updateServidor(ipNumber,portNumber,file);
+        }  catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private static void leaveServidor(String ipNumber, String portNumber) {
         try {
@@ -176,7 +227,7 @@ public class Cliente {
                     InetAddress.getByName("127.0.0.1"),
                     serverPort);
 
-
+            clientSocket.setSoTimeout(TIMEOUT_MILISECONDS);
             clientSocket.send(sendPacket);
 
             StoredfileNames = null;
@@ -190,6 +241,9 @@ public class Cliente {
             String info = new String(recPkt.getData(),recPkt.getOffset(),recPkt.getLength());
             System.out.println(info);
             clientSocket.close();
+        } catch (SocketTimeoutException st) {
+            System.out.println("[NAO CONSEGUIU DAR LEAVE] PARA HOST: " + ipNumber+ " TENTANDO NOVAMENTE");
+            leaveServidor(ipNumber,portNumber);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -213,6 +267,7 @@ public class Cliente {
                     InetAddress.getByName("127.0.0.1"),
                     serverPort);
 
+            clientSocket.setSoTimeout(TIMEOUT_MILISECONDS);
             clientSocket.send(sendPacket);
 
             //recebe response
@@ -225,6 +280,9 @@ public class Cliente {
             System.out.println("LISTA DE HOSTS COM ARQUIVO: " + fileName + " : " + info);
 
             clientSocket.close();
+        } catch (SocketTimeoutException st) {
+            System.out.println("[NAO CONSEGUIU DAR SEARCH] PARA HOST: " + ipNumber + " TENTANDO NOVAMENTE");
+            procuraFileNoServidor(fileName);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -248,6 +306,8 @@ public class Cliente {
             System.out.println("------ SEARCH -------");
             System.out.println("----- DOWNLOAD ------");
             System.out.println("------- LEAVE -------");
+            System.out.println("------- UPDATE -------");
+
         } else{
             System.out.println("--- ESCOLHA UMA ACAO ---");
             System.out.println("------- JOIN --------");
@@ -275,4 +335,82 @@ public class Cliente {
         return 0;
     }
 
+    private static void enviaRequestDownload(List<String> parametros) {
+        try {
+            String fileParaBaixar  = parametros.get(2);
+
+            Socket s = new Socket(parametros.get(0),Integer.valueOf(parametros.get(1)));
+
+            OutputStream os = s.getOutputStream();
+            DataOutputStream writer = new DataOutputStream(os);
+
+
+            writer.writeBytes(fileParaBaixar + "\n");
+
+
+            InputStream is = s.getInputStream();
+            DataInputStream clientData = new DataInputStream(is);
+            Integer bufferSize = Integer.valueOf(clientData.readUTF());
+            OutputStream output = new FileOutputStream(dir + "/" + fileParaBaixar);
+            BufferedOutputStream bos = new BufferedOutputStream(output);
+
+            byte[] buffer = new byte[bufferSize];
+            is.read(buffer,0,bufferSize);
+            output.write(buffer,0,bufferSize);
+            output.flush();
+            /*
+            FileOutputStream fos = new FileOutputStream(dir + "/" + fileParaBaixar);
+            BufferedOutputStream bos = new BufferedOutputStream(fos);
+
+            byte[] contents = new byte[10000];
+
+            int bytesRead = 0;
+            while((bytesRead=is.read(contents,0,contents.length))!=-1)
+                bos.write(contents, 0, bytesRead);
+            bos.flush(); */
+            System.out.println("[DOWNLOAD] completo");
+
+            s.close();
+    } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+
+static class ThreadDownload extends Thread{
+
+    private Socket no = null;
+    private String file = null;
+    public ThreadDownload(Socket node, String file){
+        this.no = node;
+        this.file = file;
+    }
+
+    public void run() {
+        try{
+
+            OutputStream os = no.getOutputStream();
+            DataOutputStream writer = new DataOutputStream(os);
+
+            File myFile = new File(dir + "/" + file);
+            byte[] mybytearray = new byte[(int) myFile.length()];
+            FileInputStream fis = new FileInputStream(myFile);
+            BufferedInputStream bis = new BufferedInputStream(fis);
+            DataInputStream dis = new DataInputStream(bis);
+
+            fis.read(mybytearray,0,mybytearray.length);
+            writer.writeUTF(String.valueOf(mybytearray.length));
+            writer.write(mybytearray, 0, mybytearray.length);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
+}
+
+
+
