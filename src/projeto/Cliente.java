@@ -9,18 +9,20 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class Cliente {
 
     public static final Integer serverPort = 10078;
     public static String dir = null;
-    //TODO UPDATE STORED FILE NAMES SE CONSEGUIU BAIXAR O ARQUIVO DE OUTRO PEER
     public static List<String> StoredfileNames = null;
     public static String ipNumber = null;
     public static String portNumber = null;
     public static Boolean connected = false;
 
     public static Integer TIMEOUT_MILISECONDS = 5000;
+
+    public static Integer DOWNLOAD_ATTEMPTS = 1;
 
     public static void main(String[] args) throws Exception {
 
@@ -277,7 +279,7 @@ public class Cliente {
 
             String info = new String(recPkt.getData(),recPkt.getOffset(),recPkt.getLength());
 
-            System.out.println("LISTA DE HOSTS COM ARQUIVO: " + fileName + " : " + info);
+            System.out.println("peers com arquivo solicitado: " + info);
 
             clientSocket.close();
         } catch (SocketTimeoutException st) {
@@ -338,8 +340,8 @@ public class Cliente {
     private static void enviaRequestDownload(List<String> parametros) {
         try {
             String fileParaBaixar  = parametros.get(2);
-
-            Socket s = new Socket(parametros.get(0),Integer.valueOf(parametros.get(1)));
+            System.out.println("PARAMETROS: " + parametros.toString());
+            Socket s = new Socket(parametros.get(0),Integer.parseInt(parametros.get(1)));
 
             OutputStream os = s.getOutputStream();
             DataOutputStream writer = new DataOutputStream(os);
@@ -350,18 +352,35 @@ public class Cliente {
 
             InputStream is = s.getInputStream();
             DataInputStream clientData = new DataInputStream(is);
-            Integer bufferSize = Integer.valueOf(clientData.readUTF());
-            OutputStream output = new FileOutputStream(dir + "/" + fileParaBaixar);
-            BufferedOutputStream bos = new BufferedOutputStream(output);
+            String UTF = clientData.readUTF();
+            if(!UTF.equals("DOWNLOAD_NEGADO")){
+                Integer bufferSize = Integer.valueOf(UTF);
+                OutputStream output = new FileOutputStream(dir + "/" + fileParaBaixar);
 
-            byte[] buffer = new byte[bufferSize];
+                byte[] buffer = new byte[bufferSize];
 
-            is.read(buffer,0,bufferSize);
-            output.write(buffer,0,bufferSize);
-            output.flush();
+                is.read(buffer,0,bufferSize);
+                output.write(buffer,0,bufferSize);
+                output.flush();
 
-            //TimeUnit.SECONDS.sleep(5);
-            System.out.println("[DOWNLOAD] completo");
+                System.out.println("[DOWNLOAD] completo");
+                updateServidor(ipNumber,portNumber,fileParaBaixar);
+                DOWNLOAD_ATTEMPTS = 1;
+
+            } else{
+                if(DOWNLOAD_ATTEMPTS < 3){
+                    System.out.println("tentando mais uma vez, chance: " +DOWNLOAD_ATTEMPTS);
+                    DOWNLOAD_ATTEMPTS++;
+                List<String> novosParametros = new ArrayList<>();
+                String novoHost = achaOutroPeer((parametros.get(0)+":"+Integer.parseInt(parametros.get(1))),fileParaBaixar);
+                novosParametros.add(novoHost.split(":")[0]);
+                novosParametros.add(novoHost.split(":")[1]);
+                novosParametros.add(fileParaBaixar);
+                enviaRequestDownload(novosParametros);
+                }
+                DOWNLOAD_ATTEMPTS = 1;
+            }
+
 
     } catch (UnknownHostException e) {
             throw new RuntimeException(e);
@@ -371,8 +390,20 @@ public class Cliente {
 
     }
 
+    private static String achaOutroPeer(String host, String file) {
+        Mensagem msg = Mensagem.getInstance();
+        List<String> hostsWithFile = msg.filesToPort.get(file);
+        if(hostsWithFile != null){
+            String newHost = hostsWithFile.stream().filter(h -> !h.equals(host)).findFirst().orElse(null);
+            if(newHost != null){
+                return newHost;
+            }
+        }
+        return host;
+    }
 
-static class ThreadDownload extends Thread{
+
+    static class ThreadDownload extends Thread{
 
     private Socket no = null;
     private String file = null;
@@ -388,13 +419,16 @@ static class ThreadDownload extends Thread{
             DataOutputStream writer = new DataOutputStream(os);
 
             File myFile = new File(dir + "/" + file);
-            byte[] mybytearray = new byte[(int) myFile.length()];
-            FileInputStream fis = new FileInputStream(myFile);
-            BufferedInputStream bis = new BufferedInputStream(fis);
+            if(myFile.exists() && Math.random() > 0.5){
+                byte[] mybytearray = new byte[(int) myFile.length()];
+                FileInputStream fis = new FileInputStream(myFile);
 
-            fis.read(mybytearray,0,mybytearray.length);
-            writer.writeUTF(String.valueOf(mybytearray.length));
-            writer.write(mybytearray, 0, mybytearray.length);
+                fis.read(mybytearray,0,mybytearray.length);
+                writer.writeUTF(String.valueOf(mybytearray.length));
+                writer.write(mybytearray, 0, mybytearray.length);
+            } else{
+                writer.writeUTF("DOWNLOAD_NEGADO");
+            }
 
             no.shutdownOutput();
         } catch (IOException e) {

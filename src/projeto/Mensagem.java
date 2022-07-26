@@ -55,18 +55,29 @@ public class Mensagem {
             Map.Entry<String, List<String>> entry = iter.next();
             String file = entry.getKey();
             List<String> hosts = entry.getValue();
-            if (entry.getValue().contains(host))
+
+            if (entry.getValue().contains(host)){
                 for(String Listhost : hosts){
                     if (!Listhost.equals(host)){
                         updatedHosts.add(Listhost);
                     }
                 }
-            filesToPort.put(file,updatedHosts);
+
+                filesToPort.remove(file);
+
+                if(updatedHosts.size() > 0) {
+                    filesToPort.put(file, updatedHosts);
+                }
+                updatedHosts = new ArrayList<>();
+            }
+
+
+
         }
     }
 
     public List<String> getFilesToPort(String fileName) {
-        List<String> lista = filesToPort.get(fileName);
+        List<String> lista = filesToPort.get(fileName.trim());
         if(lista == null){
             return new ArrayList<String>();
         } else{

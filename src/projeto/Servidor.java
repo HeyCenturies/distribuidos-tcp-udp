@@ -83,7 +83,9 @@ public class Servidor {
                             for(String fileInList : fileNames){
                                 List<String> hostsWithFiles = msg.getFilesToPort(fileInList);
                                 hostsWithFiles.add(host);
+
                                 msg.setFilesToPort(fileInList.trim(),hostsWithFiles);
+
                             }
 
                             socket.send(packet);
