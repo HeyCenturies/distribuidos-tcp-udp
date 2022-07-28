@@ -3,6 +3,23 @@ package projeto;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/*
+    Vitor Medeiros : 11201720112
+
+    Observacoes:
+        - Todas as requisicoes UDP fazem uso do metodo  socket.setSoTimeout(TIMEOUT_MILISECONDS), onde TIMEOUT_MILISECONDS
+        é uma constante definida na classe. Em caso de timeout, o bloco catch da excecao chama novamente o metodo em questao
+        para tentar novamente a comunicacao com o servidor. Secao 5.g
+
+        - Infelizmente quando comecei o projeto eu nao tinha entendido exatamente o proposito da classe mensagem e que
+        ela deveria atuar como um object de comunicacao entre servidor e cliente. Utilizei a classe mensagem como uma
+        classe Singleton que mantem o estado dos arquivos que estao em determinado host, assim como os hosts que possuem
+        determinado arquivo, as informacoes sao mantidas em um ConcurrentHashmap(). Apesar de nao ter utilizado a classe
+        de acordo com as especificacoes, espero que seja possível considerar a execucao da aplicacao como um tod o que está
+        funcionando e atende aos outros critérios de avaliacao.
+
+ */
+
 public class Mensagem {
 
     private static Mensagem single_instance = null;
@@ -35,11 +52,8 @@ public class Mensagem {
     }
 
     public void updatePortToFiles(String host , String file) {
-        System.out.println("[MSG] HOST: " + host + "FILE: " + file);
 
         List<String> original = portToFiles.get(host);
-
-        System.out.println("[MSG] ORIGINAL : " + original.toString());
 
         if(!original.contains(file)){
             original.add(file);
@@ -47,6 +61,9 @@ public class Mensagem {
         portToFiles.put(host,original);
     }
 
+   /*
+   Quando o server recebe um LEAVE ou quando a requisicao ALIVE nao recebe resposta
+    */
     public void removeHost (String host){
         portToFiles.remove(host);
         List<String> updatedHosts = new ArrayList<>();

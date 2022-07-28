@@ -1,59 +1,44 @@
 package projeto;
 
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 
+/*
+    Vitor Medeiros : 11201720112
+
+    Observacoes:
+        - Todas as requisicoes UDP fazem uso do metodo  socket.setSoTimeout(TIMEOUT_MILISECONDS), onde TIMEOUT_MILISECONDS
+        é uma constante definida na classe. Em caso de timeout, o bloco catch da excecao chama novamente o metodo em questao
+        para tentar novamente a comunicacao com o servidor. Secao 5.g
+
+        - Infelizmente quando comecei o projeto eu nao tinha entendido exatamente o proposito da classe mensagem e que
+        ela deveria atuar como um object de comunicacao entre servidor e cliente. Utilizei a classe mensagem como uma
+        classe Singleton que mantem o estado dos arquivos que estao em determinado host, assim como os hosts que possuem
+        determinado arquivo, as informacoes sao mantidas em um ConcurrentHashmap(). Apesar de nao ter utilizado a classe
+        de acordo com as especificacoes, espero que seja possível considerar a execucao da aplicacao como um tod o que está
+        funcionando e atende aos outros critérios de avaliacao.
+
+ */
+
 public class Servidor {
 
-    public static final Integer serverPort = 10078;
+    public static final Integer serverPort = 10098;
     public static final Integer ALIVE_OK_TIMEOUT_MILISECONDS = 5000;
 
     public static void main(String[] args) {
 
-        // TCP
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                ExecutorService executor = null;
-                try (ServerSocket server = new ServerSocket(serverPort)) {
-                    executor = Executors.newFixedThreadPool(5);
-                    System.out.println("Listening on TCP port " + serverPort);
-                    while (true) {
-                        final Socket socket = server.accept();
-                        InputStreamReader isr = new InputStreamReader(socket.getInputStream());
-                        BufferedReader reader = new BufferedReader(isr);
-                        List<String> msg = Arrays.asList(reader.readLine().toString().split("\\s+"));
-
-                        if(msg.get(0).equals("JOIN")){
-                            ThreadAtendimento ta = new ThreadAtendimento(socket);
-                            ta.start();
-                        }
-
-                    }
-                } catch (IOException ioe) {
-                    System.err.println("Cannot open the port on TCP");
-                    ioe.printStackTrace();
-                } finally {
-                    System.out.println("Closing TCP server");
-                    if (executor != null) {
-                        executor.shutdown();
-                    }
-                }
-            }
-        }).start();
-
-        // UDP
+        /*
+        Instancia o server UDP que recebe requests e executa methods dependendo do tipo de request recebida,
+        as request sao tratadas como strings , por isso o uso de methods que manipulam strings para obter host/ip/conteudo.
+         */
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try (DatagramSocket socket = new DatagramSocket(serverPort)) {
-                    System.out.println("Listening on UDP port " + serverPort);
 
                     while (true) {
                         byte[] buf = new byte[socket.getReceiveBufferSize()];
@@ -64,6 +49,13 @@ public class Servidor {
                         socketData = socketData.substring(1,socketData.length()-1);
                         String operation = socketData.substring(0,socketData.indexOf(","));
 
+
+                        /*
+
+                        Secao 4.b -> Recebe uma request contendo host/numberOfFiles e lista de fileNames vindas como um
+                        arraylist do client, depois adiciona a as variaveis que mantem files por host e uma lista de
+                        todas as files em um host.
+                         */
                         if(operation.equals("JOIN")){
 
                             String host = socketData.substring(nthIndexOf(socketData,",",1)+1,
@@ -74,7 +66,7 @@ public class Servidor {
                                     socketData.length()-1).trim().split(",")));
 
 
-                            System.out.println("[JOIN_REQUEST] host:" + host + "files:"+ numberOfFiles + "names:"+ fileNames);
+                            System.out.println("Peer: "+  host + " adicionado com arquivos: "+ fileNames);
                             packet.setData("JOIN_OK".getBytes());
 
                             Mensagem msg = Mensagem.getInstance();
@@ -91,12 +83,14 @@ public class Servidor {
                             socket.send(packet);
                         }
 
+                        /*
+                        Secao 4.c -> Requisicao leave recebe o host encapuslado em um arrayList, ao receber,
+                        elimina as informacoes do host em questao e devolve um packet com data LEAVE_OK
+                         */
                         if(operation.equals("LEAVE")){
 
                             String host = socketData.substring(nthIndexOf(socketData,",",1)+1).trim();
 
-
-                            System.out.println("[LEAVE REQUEST] host:" + host);
                             packet.setData("LEAVE_OK".getBytes());
 
                             Mensagem msg = Mensagem.getInstance();
@@ -105,33 +99,39 @@ public class Servidor {
                             socket.send(packet);
                         }
 
+                        /*
+                        Secao 4.d -> Recebe o host de onde vem a requisicao e o fileName a ser procurado,
+                        faz uma busca pelo arquivo no map<FileName,Lista<Hosts>> e devolve todos aqueles que
+                        possuem o arquivo.
+                         */
                         if(operation.equals("SEARCH")){
 
-                            String fileName = socketData.substring(nthIndexOf(socketData,",",1)+1).trim();
+                            String host = socketData.substring(nthIndexOf(socketData,",",1)+1,nthIndexOf(socketData,",",2)).trim();
+                            String fileName = socketData.substring(nthIndexOf(socketData,",",2)+1).trim();
 
                             Mensagem msg = Mensagem.getInstance();
                             List<String> hostsComArquivo = msg.getFilesToPort(fileName);
 
                             packet.setData(hostsComArquivo.toString().getBytes(StandardCharsets.UTF_8));
-
+                            System.out.println("Peer: " + host+ " solicitou arquivo: " + fileName);
                             socket.send(packet);
                         }
 
+                        /*
+                        Secao 4.e -> Requisicao enviada apos o download, atualiza a lista de files por host e
+                        de host por files com a nova distribuicao dos arquivos.
+                         */
                         if(operation.equals("UPDATE")){
 
                             String host = socketData.substring(nthIndexOf(socketData,",",1)+1, nthIndexOf(socketData,",",2)).trim();
                             String fileName = socketData.substring(nthIndexOf(socketData,",",2)+1).trim();
 
-                            System.out.println("[UPDATE_REQUEST] host:" + host + "file:"+ fileName);
                             packet.setData("UPDATE_OK".getBytes());
 
                             Mensagem msg = Mensagem.getInstance();
 
                             msg.updatePortToFiles(host,fileName);
                             msg.updateFilesToPort(host,fileName);
-
-                            System.out.println("UPDATED PORT TO FILES: " + msg.getPortToFiles().toString());
-                            System.out.println("UPDATED FILES TO PORT: " + msg.getFilesToPort(fileName).toString());
 
                             socket.send(packet);
                         }
@@ -146,7 +146,10 @@ public class Servidor {
             }
         }).start();
 
-        // REQUEST ALIVE A CADA 30S
+
+        /*
+        Envia a requisicao de Request ALIVE para todos os hosts conectados a cada 30s
+         */
         ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
         exec.scheduleAtFixedRate(new Runnable() {
             @Override
@@ -154,7 +157,6 @@ public class Servidor {
                 Mensagem msg = Mensagem.getInstance();
                 Set<String> connectedHosts = msg.getPortToFiles().keySet();
                 Iterator<String> it = connectedHosts.iterator();
-                System.out.println("LISTA DE HOSTS CONECTADOS: " + connectedHosts);
                 while (it.hasNext()) {
                     String hostAtual = it.next();
                     // tenta ALIVE no host
@@ -185,7 +187,7 @@ public class Servidor {
                     } catch (SocketException | UnknownHostException e) {
                         throw new RuntimeException(e);
                     }  catch (SocketTimeoutException st){
-                        System.out.println("[NAO RECEBI ALIVE_OK] PARA HOST: " + hostAtual);
+                        System.out.println("Peer: " + hostAtual + " morto. Eliminando seus arquivos");
                         msg.removeHost(hostAtual);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
@@ -197,6 +199,10 @@ public class Servidor {
     }
 
 
+    /*
+    Funcao auxiliar para manipulacao de Strings, é usado principalmente para separar listas de hosts IP:PORT
+    a partir do index da virgula.
+     */
     public static int nthIndexOf(String str, String subStr, int count) {
         int ind = -1;
         while(count > 0) {
@@ -207,6 +213,11 @@ public class Servidor {
         return ind;
     }
 
+    /*
+    Na hora de criar um dataGram socket, é preciso instanciar o socket em uma porta que ainda nao esteja sendo
+    utilizada, para evitar problemas de concorrencia, buscamos a localPort livre no momento em que o socket é
+    estabelecido.
+     */
     public static int acharFreePort(){
         try {
             ServerSocket socket = new ServerSocket(0);
